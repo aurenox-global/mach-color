@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Color Match — 30s</title>
+<style>
+  :root {
+    --bg: #0f1724;
+    --text: #e6eef8;
+    --muted: #9fb0c8;
+    --accent: #60a5fa;
+    --radius: 14px;
+    --btn-radius: 10px;
+    --shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: linear-gradient(180deg, var(--bg), #081023);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+  }
+  .app {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 900px;
+  }
+  @media (min-width: 800px) {
+    .app {
+      flex-direction: row;
+    }
+    .panel {
+      border-left: 1px solid rgba(255,255,255,0.08);
+      padding-left: 16px;
+    }
+  }
+  .game {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .toprow {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .stat {
+    background: rgba(255,255,255,0.05);
+    padding: 8px 14px;
+    border-radius: var(--radius);
+    text-align: center;
+    min-width: 90px;
+  }
+  .label { font-size: 12px; color: var(--muted); }
+  .value { font-size: 18px; font-weight: bold; }
+  .wordcard {
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .word {
+    font-size: clamp(36px, 12vw, 90px);
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+  .color-btn {
+    border: none;
+    padding: 12px;
+    border-radius: var(--btn-radius);
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: var(--shadow);
+    min-height: 56px;
+    touch-action: manipulation;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .color-btn:active {
+    transform: scale(0.96);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  /* colores */
+  .c-red { background: #ff6b6b; }
+  .c-blue { background: #60a5fa; }
+  .c-green { background: #51cf66; }
+  .c-yellow { background: #ffd166; color: #2d1f00; }
+  .c-purple { background: #b86bff; }
+  .c-orange { background: #ff9f43; color: #2d1400; }
+  .c-pink { background: #ff79c6; }
+  .c-teal { background: #2bd4c7; }
+  .c-gray { background: #94a3b8; }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    padding-top: 8px;
+  }
+  .best { font-size: 28px; font-weight: bold; color: var(--accent); }
+  button#startBtn {
+    background: var(--accent);
+    color: #001;
+    border: none;
+    padding: 10px 14px;
+    border-radius: var(--btn-radius);
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="game">
+    <div class="toprow">
+      <div class="stat">
+        <div class="label">Tiempo</div>
+        <div class="value" id="time">30.0s</div>
+      </div>
+      <div class="stat">
+        <div class="label">Puntos</div>
+        <div class="value" id="score">0</div>
+      </div>
+    </div>
+    <div class="wordcard">
+      <div id="word" class="word">—</div>
+    </div>
+    <div class="controls" id="buttons"></div>
+    <button id="startBtn">Iniciar</button>
+  </section>
+  <aside class="panel">
+    <div>Mejor Puntuación</div>
+    <div class="best" id="best">0</div>
+  </aside>
+</div>
+
+<script>
+const COLORS = [
+  { key: 'red', name: 'Rojo', css: 'c-red', hex: '#ff6b6b' },
+  { key: 'blue', name: 'Azul', css: 'c-blue', hex: '#60a5fa' },
+  { key: 'green', name: 'Verde', css: 'c-green', hex: '#51cf66' },
+  { key: 'yellow', name: 'Amarillo', css: 'c-yellow', hex: '#ffd166' },
+  { key: 'purple', name: 'Morado', css: 'c-purple', hex: '#b86bff' },
+  { key: 'orange', name: 'Naranja', css: 'c-orange', hex: '#ff9f43' },
+  { key: 'pink', name: 'Rosa', css: 'c-pink', hex: '#ff79c6' },
+  { key: 'teal', name: 'Turquesa', css: 'c-teal', hex: '#2bd4c7' },
+  { key: 'gray', name: 'Gris', css: 'c-gray', hex: '#94a3b8' }
+];
+let score = 0, best = localStorage.getItem('bestScore') || 0;
+let running = false, currentColor, endTime;
+document.getElementById('best').textContent = best;
+
+function randomPair(){
+  const word = COLORS[Math.floor(Math.random() * COLORS.length)];
+  let color;
+  do { color = COLORS[Math.floor(Math.random() * COLORS.length)]; }
+  while(color.key === word.key);
+  return { word, color };
+}
+
+function nextRound(){
+  const { word, color } = randomPair();
+  document.getElementById('word').textContent = word.name;
+  document.getElementById('word').style.color = color.hex;
+  currentColor = color.key;
+}
+
+function handleChoice(key){
+  if(!running) return;
+  if(key === currentColor) score++;
+  document.getElementById('score').textContent = score;
+  nextRound();
+}
+
+function startGame(){
+  score = 0;
+  running = true;
+  endTime = Date.now() + 30000;
+  tick();
+  nextRound();
+}
+
+function tick(){
+  if(!running) return;
+  const remain = (endTime - Date.now())/1000;
+  document.getElementById('time').textContent = remain.toFixed(1) + 's';
+  if(remain <= 0){
+    running = false;
+    if(score > best){
+      best = score;
+      localStorage.setItem('bestScore', best);
+      document.getElementById('best').textContent = best;
+    }
+    return;
+  }
+  requestAnimationFrame(tick);
+}
+
+const btns = document.getElementById('buttons');
+COLORS.forEach(c=>{
+  const b = document.createElement('button');
+  b.className = `color-btn ${c.css}`;
+  b.textContent = c.name;
+  b.onclick = ()=>handleChoice(c.key);
+  btns.appendChild(b);
+});
+document.getElementById('startBtn').onclick = startGame;
+</script>
+</body>
+</html>
